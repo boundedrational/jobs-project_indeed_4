@@ -14,7 +14,6 @@ require 'sanitize'
 queries=[]
 states=[ 'Rhode+Island',  'New+York','New+Jersey', 'Wyoming','District+of+Columbia',  'Louisiana',  'Nebraska',  'South+Carolina', 'Delaware', 'Washington' ]
 counts = Hash.new(0)
-
 queryurl="http://www.indeed.com/jobs?"
 ht = Hash.new {|h,k| h[k]=[]}
 tt = Hash.new {|h,k| h[k]=[]}
@@ -22,6 +21,7 @@ gt = Hash.new {|h,k| h[k]=[]}
 ct = Hash.new {|h,k| h[k]=[]}
 st = Hash.new {|h,k| h[k]=[]}
 et = Hash.new {|h,k| h[k]=[]}
+geo = Hash.new {|h,k| h[k]=[]}
 
 t='<script type="text/javascript"> function rclk('
 
@@ -34,13 +34,13 @@ for element in states
   total = total.gsub!(',','')
   total = Integer(total)
   puts total
+  puts element
   resultsperpage = 10
   pages = (total / resultsperpage) + 1
   puts pages
   puts element
   resultslimit=1000
   url_state=element
-  url_state.gsub!(/[+]/,"%2B")
 
   j=0
   checkAgainst = ['']
@@ -52,18 +52,42 @@ for element in states
   ct.clear
   st.clear
   et.clear
+  geo.clear
+  
+  
 
   while j<=resultslimit
     g=0        
     if j==0
              while c<=resultslimit
-                long_url= "http://www.jobgymn.com/makefulltextfeed.php?url=rss.indeed.com%2Frss%3Fq%3D%26l%3D" + url_state + "%26sort%3Ddate%26start%3D"+c.to_s()+"&max=2000&links=preserve&exc=&submit=Create+Feed"
+                long_url= "http://fullrss.net/a/http/rss.indeed.com/rss?q=&l=" + url_state + "california&sort=date&start="+c.to_s()
                 scraping = Nokogiri::XML(open(long_url))
                 
                 scraping.css("item").each do |result|
-                  title=result.css('link').inner_html
+                  puts "try"
+                  identification=result.css('link').inner_html
+                  identification.to_s()
+                  identification=identification.split("-").last
+                  puts identification
                   text=result.css("description").inner_html
                   timing=result.css("pubDate").inner_html
+                  
+                  begin
+                    long_content=result.css("content:encoded").inner_html
+                  rescue
+                  end
+                  begin
+                
+                    some_id=result.css("guid").inner_html
+                  rescue
+                  end
+                  begin
+                    map=result.css("georss:point").inner_html
+                    employer=result.css("source").inner_html          
+                  rescue
+                  end
+   
+
   
                   text=Sanitize.clean(text)
                   text.gsub!(/&lt.*?&gt;/im, "")
@@ -74,8 +98,13 @@ for element in states
   
           
                   title=title.to_s()
-                  ht[title]<< text
-                  tt[title]<< timing
+                  begin
+                   ht[identification]<< long_content
+                  rescue
+                   ht[identification]<< text
+                  end
+                  tt[identification]<< timing
+                  geo[identification]<< map
   
                   c=c+resultsperpage
                 end
@@ -155,6 +184,7 @@ for element in states
             "srcid"=>'',
             "efccid"=>'',
             "cmpid"=>'',
+            "geo"=>'',
 
 
           }
@@ -173,6 +203,7 @@ for element in states
               if ht.has_key?(ident)
                 data["long_description"]=ht[ident]
                 data["long_timing"]=tt[ident]
+                data["geo"]=geo[ident]
                 
               end
               s=''
